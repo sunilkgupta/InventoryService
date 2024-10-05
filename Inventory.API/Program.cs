@@ -1,13 +1,15 @@
+using Inventory.Business.Implementation;
+using Inventory.Business.Interfaces;
+using Inventory.DataContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Inventory.API.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<InventoryAPIContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("InventroryConnectionString") ?? throw new InvalidOperationException("Connection string 'InventoryAPIContext' not found.")));
 builder.Services.AddApplicationInsightsTelemetry();
 // Add services to the container.
-
+builder.Services.AddScoped<IInventoryBusiness, InventoryBusiness>();
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Inventory.API.Data;
+using Inventory.DataContext;
+using Inventory.Business.Interfaces;
 
 namespace Inventory.API.Controllers
 {
@@ -12,152 +13,109 @@ namespace Inventory.API.Controllers
     public class InventoryController : ControllerBase
     {
         private readonly ILogger<InventoryController> _logger;
-        private readonly InventoryAPIContext _context;
+        private readonly IInventoryBusiness _inventoryBusiness;
 
         /// <summary>
         /// Public constructor
         /// </summary>
         /// <param name="logger"></param>
-        /// <param name="context"></param>
-        public InventoryController(ILogger<InventoryController> logger, InventoryAPIContext context)
+        /// <param name="inventoryBusiness"></param>
+        public InventoryController(ILogger<InventoryController> logger, IInventoryBusiness inventoryBusiness)
         {
             _logger = logger;
-            _context = context;
+            _inventoryBusiness = inventoryBusiness;
         }
 
         /// <summary>
-        /// Get all inventories data
+        /// Get all inventories
         /// </summary>
         /// <returns></returns>
         // GET: api/Inventory
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Models.Inventory>>> Get()
+        public async Task<ActionResult<IEnumerable<Common.Entities.Inventory>>> Get()
         {
-            try
+            _logger.LogInformation("All Inventorys requested");
+            var response = await _inventoryBusiness.GetInventories();
+            if (!response.Any())
             {
-                _logger.LogInformation("All Inventory requested");
-                if (_context.Inventory == null)
-                {
-                    return NotFound();
-                }
-                return await _context.Inventory.ToListAsync();
+                return NotFound();
             }
-            catch(Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while processing the request.");
-                return StatusCode(500, "An error occurred.");
-            }
+            return Ok(response);
         }
 
         /// <summary>
         /// Get specific Inventory record
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="id">id</param>
         /// <returns></returns>
         // GET: api/Inventory/5
         [HttpGet("{id}")]
-        [ProducesResponseType(typeof(Models.Inventory), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<Models.Inventory>> Get(Guid id)
+        public async Task<ActionResult<Common.Entities.Inventory>> Get(Guid id)
         {
-            try
+            _logger.LogInformation("Inventory requested: Id is {0}", id);
+            if (id == Guid.Empty)
             {
-                _logger.LogInformation("Inventory requested: Id is {0}", id);
-                if (_context.Inventory == null)
-                {
-                    return NotFound();
-                }
-                var inventory = await _context.Inventory.FindAsync(id);
-
-                if (inventory == null)
-                {
-                    return NotFound();
-                }
-                return inventory;
+                _logger.LogWarning("Inventory requested: Id is null {0} ", id);
+                return BadRequest();
             }
-            catch(Exception ex)
+            else
             {
-                _logger.LogError(ex, "An error occurred while processing the request.");
-                return StatusCode(500, "An error occurred.");
+                var response = await _inventoryBusiness.GetInventoryById(id);
+                if (response == null)
+                {
+                    _logger.LogWarning("Inventory requested: Id is {0}, does not exist.", id);
+                    return NotFound();
+                }
+                return Ok(response);
             }
         }
 
         /// <summary>
-        /// Update exising inventory
+        /// Update exising Inventory
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="inventory"></param>
+        /// <param name="id">id</param>
+        /// <param name="Inventory">Inventory</param>
         /// <returns></returns>
         // PUT: api/Inventory/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> Put(Guid id, Models.Inventory inventory)
+        public async Task<IActionResult> Put(Guid id, Common.Entities.Inventory Inventory)
         {
             _logger.LogInformation("Inventory updating: Id is {0}", id);
-            try
-            {
-                if (id != inventory.ItemId)
-                {
-                    return BadRequest();
-                }
 
-                _context.Entry(inventory).State = EntityState.Modified;            
-                await _context.SaveChangesAsync();
-                return Ok(inventory);
-            }
-            catch (DbUpdateConcurrencyException ex)
+            if (id == Guid.Empty || Inventory == null)
             {
-                if (!InventoryExists(id))
-                {
-                    _logger.LogError(ex, "Db Update Concurrency Exception occurred as Id is missing: {0}", id);
-                    return NotFound();
-                }
-                else
-                {
-                    _logger.LogError(ex, "An error occurred while processing the request.");
-                    throw;
-                }
+                return BadRequest();
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while processing the request.");
-                return StatusCode(500, "An error occurred.");
-            }
+            await _inventoryBusiness.UpdateInventory(id, Inventory);
+            return Ok(Inventory);
+
         }
 
         /// <summary>
-        /// Create a new inventory
+        /// Create a new Inventory
         /// </summary>
-        /// <param name="inventory"></param>
+        /// <param name="Inventory"></param>
         /// <returns></returns>
         // POST: api/Inventory
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        [ProducesResponseType(StatusCodes.Status201Created)]
-        public async Task<ActionResult<Models.Inventory>> Post(Models.Inventory inventory)
+        public async Task<ActionResult<Common.Entities.Inventory>> Post(Common.Entities.Inventory Inventory)
         {
-            try
+            _logger.LogInformation("New Inventory creating..");
+            if (Inventory == null)
             {
-                _logger.LogInformation("New Inventory creating..");
-                if (_context.Inventory == null)
-                {
-                    return Problem("Entity set 'InventoryAPIContext.Inventory'  is null.");
-                }
-                _context.Inventory.Add(inventory);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Inventory created successfully, Id is {0}", inventory.ItemId);
-
-                return CreatedAtAction("Get", new { id = inventory.ItemId }, inventory);
+                return BadRequest("Inventory is null");
             }
-            catch(Exception ex)
+            var response = await _inventoryBusiness.CreateInventory(Inventory);
+            if (response == null)
             {
-                _logger.LogError(ex, "An error occurred while processing the request.");
-                return StatusCode(500, "An error occurred.");
+                _logger.LogWarning("Inventory not created!");
+                return NotFound();
             }
+            return Created("", response);
         }
 
         /// <summary>
-        /// Delete existing inventory
+        /// Delete existing Inventory
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
@@ -165,35 +123,17 @@ namespace Inventory.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            try
+            _logger.LogInformation("Inventory deleting, Id is {0}", id);
+            if (id == Guid.Empty)
             {
-                _logger.LogInformation("Inventory deleting, Id is {0}", id);
-                if (_context.Inventory == null)
-                {
-                    return NotFound();
-                }
-                var inventory = await _context.Inventory.FindAsync(id);
-                if (inventory == null)
-                {
-                    return NotFound();
-                }
-
-                _context.Inventory.Remove(inventory);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Inventory deleted successfully, Id is {0}", id);
-                return NoContent();
+                return BadRequest();
             }
-            catch (Exception ex)
+            var response = await _inventoryBusiness.DeleteInventory(id);
+            if (!response)
             {
-                _logger.LogError(ex, "An error occurred while processing the request.");
-                return StatusCode(500, "An error occurred.");
+                return NotFound();
             }
-
-        }
-
-        private bool InventoryExists(Guid id)
-        {
-            return (_context.Inventory?.Any(e => e.ItemId == id)).GetValueOrDefault();
+            return NoContent();
         }
     }
 }

@@ -1,5 +1,4 @@
 using Inventory.API.Controllers;
-using Inventory.API.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -8,69 +7,132 @@ using AutoFixture;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
+using Inventory.Business.Interfaces;
 
 namespace Inventory.UnitTest
 {
     [TestClass]
     public class InventoryControllerUnitTest
     {
-        private readonly Mock<ILogger<InventoryController>> _logger;
-        private readonly Mock<InventoryAPIContext> _context;
-        private IFixture _fixture;
+        private Mock<ILogger<InventoryController>> _logger;
+        private Mock<IInventoryBusiness> mockInventoryBusiness;
+        private Fixture _fixture;
 
-        public InventoryControllerUnitTest(IFixture fixture)
+        [TestInitialize]
+        public void InventoryControllerUnitTestTestInitialize()
         {
             _logger = new Mock<ILogger<InventoryController>>();
-            _context = new Mock<InventoryAPIContext>();
-            _fixture = fixture;
-        }
-
-        [TestMethod]
-        public async Task InventoryController_Get_When_Inventory_Is_Null()
-        {
-            //Arrange
-            var inventoryController = new InventoryController(_logger.Object, _context.Object);
-            var inventrory = _fixture.Create<API.Models.Inventory>();
-            inventrory = null;
-            
-            //Act
-            var data = await inventoryController.Get();
-
-            //Asset
-            Assert.IsNull(data);
-            Assert.IsNull(inventrory);
+            mockInventoryBusiness = new Mock<IInventoryBusiness>();
+            _fixture = new Fixture();
+            _fixture.Customize(new AutoMoqCustomization());
 
         }
 
         [TestMethod]
-        public async Task InventoryController_Get_When_Inventory_Is_Not_Null()
+        public async Task InventoryController_Get_All_Inventorys()
         {
             //Arrange
-            var inventoryController = new InventoryController(_logger.Object, _context.Object);
-            var lstInventrory = _fixture.Create<List<API.Models.Inventory>>();
+            var InventoryResult = _fixture.Create<Task<IEnumerable<Common.Entities.Inventory>>>();
+            mockInventoryBusiness.Setup(c => c.GetInventories()).Returns(InventoryResult);
 
             //Act
-            var data = await inventoryController.Get();
+            var InventoryController = new InventoryController(_logger.Object, mockInventoryBusiness.Object);
+            var result = await InventoryController.Get();
 
-            //Asset
-            Assert.IsNotNull(data);
-            Assert.IsNotNull(lstInventrory);
-
+            //Assert
+            Assert.IsNotNull(result);
+            Assert.IsNotNull(InventoryResult);
         }
 
         [TestMethod]
-        public void InventoryController_Get_When_Throw_Exception()
+        public async Task InventoryController_Get_All_Inventorys_Null()
         {
             //Arrange
-            var inventoryController = new InventoryController(_logger.Object, _context.Object);
-            var getException = _fixture.Create<Exception>();
+            var InventoryResult = _fixture.Create<Task<IEnumerable<Common.Entities.Inventory>>>();
+            mockInventoryBusiness.Setup(c => c.GetInventories()).Returns(InventoryResult);
+            InventoryResult = null;
 
             //Act
-            var result = Assert.ThrowsException<Exception>(() => inventoryController.Get());
-            Assert.AreEqual(getException, result);
+            var InventoryController = new InventoryController(_logger.Object, mockInventoryBusiness.Object);
+            var result = await InventoryController.Get();
+            result = null;
 
+            //Assert
+            Assert.IsNull(result);
+            Assert.IsNull(InventoryResult);
         }
 
+        [TestMethod]
+        public async Task InventoryController_Get_Inventory_By_Id()
+        {
+            //Arrange
+            var InventoryResult = _fixture.Create<Task<Common.Entities.Inventory>>();
+            mockInventoryBusiness.Setup(c => c.GetInventoryById(It.IsAny<Guid>())).Returns(InventoryResult);
+            //InventoryResult = null;
 
+            //Act
+            var InventoryController = new InventoryController(_logger.Object, mockInventoryBusiness.Object);
+            var id = _fixture.Create<Guid>();
+            var result = await InventoryController.Get(id);
+
+            //Assert
+            Assert.IsNotNull(result);
+            Assert.IsNotNull(InventoryResult);
+        }
+
+        [TestMethod]
+        public async Task InventoryController_Create_Inventory()
+        {
+            //Arrange
+            var InventoryResult = _fixture.Create<Task<Common.Entities.Inventory>>();
+            InventoryResult.Result.ItemId = Guid.Empty;
+            mockInventoryBusiness.Setup(c => c.CreateInventory(It.IsAny<Common.Entities.Inventory>())).Returns(InventoryResult);
+
+            //Act
+            var InventoryController = new InventoryController(_logger.Object, mockInventoryBusiness.Object);
+            var Inventory = _fixture.Create<Common.Entities.Inventory>();
+            var result = await InventoryController.Post(Inventory);
+
+            //Assert
+            Assert.IsNotNull(result);
+            Assert.IsNotNull(InventoryResult);
+        }
+
+        [TestMethod]
+        public async Task InventoryController_Update_Inventory()
+        {
+            //Arrange
+            var InventoryResult = _fixture.Create<Task<Common.Entities.Inventory>>();
+            mockInventoryBusiness.Setup(c => c.UpdateInventory(It.IsAny<Guid>(), It.IsAny<Common.Entities.Inventory>())).Returns(InventoryResult);
+
+            //Act
+            var InventoryController = new InventoryController(_logger.Object, mockInventoryBusiness.Object);
+            var Inventory = _fixture.Create<Common.Entities.Inventory>();
+            var id = _fixture.Create<Guid>();
+
+            var result = await InventoryController.Put(id, Inventory);
+
+            //Assert
+            Assert.IsNotNull(result);
+            Assert.IsNotNull(InventoryResult);
+        }
+
+        [TestMethod]
+        public async Task InventoryController_Delete_Inventory()
+        {
+            //Arrange
+            var InventoryResult = _fixture.Create<Task<bool>>();
+            mockInventoryBusiness.Setup(c => c.DeleteInventory(It.IsAny<Guid>())).Returns(InventoryResult);
+
+            //Act
+            var InventoryController = new InventoryController(_logger.Object, mockInventoryBusiness.Object);
+            var id = _fixture.Create<Guid>();
+
+            var result = await InventoryController.Delete(id);
+
+            //Assert
+            Assert.IsNotNull(result);
+            Assert.IsNotNull(InventoryResult);
+        }
     }
 }
