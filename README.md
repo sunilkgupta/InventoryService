@@ -36,7 +36,7 @@ Download the project from Github and map it locally. Azure SQL credentials provi
 ## Getting Started
 
 Follow the swagger documentation and test all the endpoints of API and see the impact in db.
-- https://orderapi20241006105322.azurewebsites.net/swagger/index.html
+- https://inventoryapi20241006185657.azurewebsites.net/swagger/index.html
 - Make sure, while placing a new orders. Those ItemId which represent the Inventory Id is present in Inventory db.
 - Once place the order, please check inventory table that order reduces the inventroy quantity by this order quantity.
 - Azure SQL Server name:- "**tcp:nsrdatabase.database.windows.net,1433**"
